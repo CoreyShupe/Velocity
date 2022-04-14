@@ -146,7 +146,8 @@ public class MinecraftDecoder extends ChannelInboundHandlerAdapter {
 
   private @Nullable String getFullPacketDump(MinecraftPacket packet, ByteBuf buffer) {
     if (DUMP_PACKET_BUFFERS) {
-      return packet.toString() + "\n" + ByteBufUtil.prettyHexDump(buffer);
+      return packet.toString() + "\n" + ByteBufUtil.prettyHexDump(buffer, 0, buffer.readableBytes()
+              + buffer.readerIndex());
     } else {
       return null;
     }
