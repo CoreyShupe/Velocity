@@ -46,6 +46,8 @@ import com.velocitypowered.proxy.protocol.netty.MinecraftCompressorAndLengthEnco
 import com.velocitypowered.proxy.protocol.netty.MinecraftDecoder;
 import com.velocitypowered.proxy.protocol.netty.MinecraftEncoder;
 import com.velocitypowered.proxy.protocol.netty.MinecraftVarintLengthEncoder;
+import com.velocitypowered.proxy.protocol.packet.chat.PlayerChat;
+import com.velocitypowered.proxy.protocol.packet.chat.PlayerCommand;
 import com.velocitypowered.proxy.util.except.QuietDecoderException;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -60,6 +62,7 @@ import io.netty.util.ReferenceCountUtil;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.security.GeneralSecurityException;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
@@ -84,6 +87,7 @@ public class MinecraftConnection extends ChannelInboundHandlerAdapter {
   public final VelocityServer server;
   private ConnectionType connectionType = ConnectionTypes.UNDETERMINED;
   private boolean knownDisconnect = false;
+  private Instant lastKnownTimestamp;
 
   /**
    * Initializes a new {@link MinecraftConnection} instance.
@@ -95,6 +99,7 @@ public class MinecraftConnection extends ChannelInboundHandlerAdapter {
     this.remoteAddress = channel.remoteAddress();
     this.server = server;
     this.state = StateRegistry.HANDSHAKE;
+    this.lastKnownTimestamp = Instant.MIN;
   }
 
   @Override
@@ -215,6 +220,7 @@ public class MinecraftConnection extends ChannelInboundHandlerAdapter {
    */
   public void write(Object msg) {
     if (channel.isActive()) {
+      detect(msg);
       channel.writeAndFlush(msg, channel.voidPromise());
     } else {
       ReferenceCountUtil.release(msg);
@@ -227,9 +233,27 @@ public class MinecraftConnection extends ChannelInboundHandlerAdapter {
    */
   public void delayedWrite(Object msg) {
     if (channel.isActive()) {
+      detect(msg);
       channel.write(msg, channel.voidPromise());
     } else {
       ReferenceCountUtil.release(msg);
+    }
+  }
+
+  private synchronized void detect(Object msg) {
+    Instant is = null;
+    if (msg instanceof PlayerChat) {
+      is = ((PlayerChat) msg).getExpiry();
+    } else if (msg instanceof PlayerCommand) {
+      is = ((PlayerCommand) msg).getTimestamp();
+    }
+    if (is != null) {
+      if (is.isBefore(this.lastKnownTimestamp)) {
+        LogManager.getLogger().warn("Found inconsistency; last known timestamp is not after last known, %s : %s"
+            .formatted(this.lastKnownTimestamp, is));
+        new RuntimeException("Stack for inconsistency.").printStackTrace();
+      }
+      this.lastKnownTimestamp = is;
     }
   }
 
