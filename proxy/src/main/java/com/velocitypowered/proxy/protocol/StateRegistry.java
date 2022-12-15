@@ -43,6 +43,7 @@ import static com.velocitypowered.proxy.protocol.ProtocolUtils.Direction;
 import com.velocitypowered.api.network.ProtocolVersion;
 import com.velocitypowered.proxy.protocol.packet.AvailableCommands;
 import com.velocitypowered.proxy.protocol.packet.BossBar;
+import com.velocitypowered.proxy.protocol.packet.ChatSessionUpdate;
 import com.velocitypowered.proxy.protocol.packet.ClientSettings;
 import com.velocitypowered.proxy.protocol.packet.Disconnect;
 import com.velocitypowered.proxy.protocol.packet.EncryptionRequest;
@@ -179,6 +180,8 @@ public enum StateRegistry {
           map(0x11, MINECRAFT_1_19, false),
           map(0x12, MINECRAFT_1_19_1, false),
           map(0x11, MINECRAFT_1_19_3, false));
+      serverbound.register(ChatSessionUpdate.class, ChatSessionUpdate::new,
+          map(0x20, MINECRAFT_1_19_3, false));
       serverbound.register(ResourcePackResponse.class, ResourcePackResponse::new,
           map(0x19, MINECRAFT_1_8, false),
           map(0x16, MINECRAFT_1_9, false),

@@ -20,6 +20,7 @@ package com.velocitypowered.proxy.connection;
 import com.velocitypowered.proxy.protocol.MinecraftPacket;
 import com.velocitypowered.proxy.protocol.packet.AvailableCommands;
 import com.velocitypowered.proxy.protocol.packet.BossBar;
+import com.velocitypowered.proxy.protocol.packet.ChatSessionUpdate;
 import com.velocitypowered.proxy.protocol.packet.ClientSettings;
 import com.velocitypowered.proxy.protocol.packet.Disconnect;
 import com.velocitypowered.proxy.protocol.packet.EncryptionRequest;
@@ -274,6 +275,10 @@ public interface MinecraftSessionHandler {
   }
 
   default boolean handle(UpsertPlayerInfo packet) {
+    return false;
+  }
+
+  default boolean handle(ChatSessionUpdate packet) {
     return false;
   }
 }
