@@ -23,6 +23,7 @@ import static com.velocitypowered.api.network.ProtocolVersion.MINECRAFT_1_8;
 import static com.velocitypowered.proxy.protocol.util.PluginMessageUtil.constructChannelsPacket;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Ints;
 import com.mojang.brigadier.suggestion.Suggestion;
 import com.velocitypowered.api.command.VelocityBrigadierMessage;
 import com.velocitypowered.api.event.connection.PluginMessageEvent;
@@ -41,6 +42,7 @@ import com.velocitypowered.proxy.connection.backend.BackendConnectionPhases;
 import com.velocitypowered.proxy.connection.backend.BungeeCordMessageResponder;
 import com.velocitypowered.proxy.connection.backend.VelocityServerConnection;
 import com.velocitypowered.proxy.protocol.MinecraftPacket;
+import com.velocitypowered.proxy.protocol.ProtocolUtils;
 import com.velocitypowered.proxy.protocol.StateRegistry;
 import com.velocitypowered.proxy.protocol.packet.BossBar;
 import com.velocitypowered.proxy.protocol.packet.ChatSessionUpdate;
@@ -106,6 +108,7 @@ public class ClientPlaySessionHandler implements MinecraftSessionHandler {
   private final CommandHandler<? extends MinecraftPacket> commandHandler;
   private final ChatTimeKeeper timeKeeper = new ChatTimeKeeper();
   private @Nullable RemoteChatSession chatSession;
+  private int linkIndex = 0;
 
   /**
    * Constructs a client play session handler.
@@ -193,6 +196,10 @@ public class ClientPlaySessionHandler implements MinecraftSessionHandler {
   public boolean handle(SessionPlayerCommand packet) {
     player.ensureAndGetCurrentServer();
 
+    if (!packet.getArgumentSignatures().isEmpty()) {
+      this.linkIndex += packet.getArgumentSignatures().size();
+    }
+
     if (!updateTimeKeeper(packet.getTimeStamp())) {
       return true;
     }
@@ -207,6 +214,10 @@ public class ClientPlaySessionHandler implements MinecraftSessionHandler {
   @Override
   public boolean handle(SessionPlayerChat packet) {
     player.ensureAndGetCurrentServer();
+
+    if (packet.isSigned()) {
+      this.linkIndex += 1;
+    }
 
     if (!updateTimeKeeper(packet.getTimestamp())) {
       return true;
@@ -278,6 +289,9 @@ public class ClientPlaySessionHandler implements MinecraftSessionHandler {
 
   @Override
   public boolean handle(PluginMessage packet) {
+    if (packet.getChannel().equalsIgnoreCase("velocity:advance_link")) {
+      return true;
+    }
     VelocityServerConnection serverConn = player.getConnectedServer();
     MinecraftConnection backendConn = serverConn != null ? serverConn.getConnection() : null;
     if (serverConn != null && backendConn != null) {
@@ -370,6 +384,7 @@ public class ClientPlaySessionHandler implements MinecraftSessionHandler {
   @Override
   public boolean handle(ChatSessionUpdate packet) {
     this.chatSession = packet.getSession();
+    this.linkIndex = 0;
     return false;
   }
 
@@ -447,6 +462,11 @@ public class ClientPlaySessionHandler implements MinecraftSessionHandler {
 
     if (this.chatSession != null) {
       serverMc.delayedWrite(new ChatSessionUpdate(this.chatSession));
+
+      ByteBuf buf = Unpooled.buffer();
+      ProtocolUtils.writeVarInt(buf, this.linkIndex);
+
+      serverMc.delayedWrite(new PluginMessage("velocity:advance_link", buf));
     }
 
     if (!spawned) {

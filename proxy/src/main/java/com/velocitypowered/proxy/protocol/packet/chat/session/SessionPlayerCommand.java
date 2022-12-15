@@ -57,6 +57,10 @@ public class SessionPlayerCommand implements MinecraftPacket {
     return command;
   }
 
+  public ArgumentSignatures getArgumentSignatures() {
+    return argumentSignatures;
+  }
+
   public Instant getTimeStamp() {
     return timeStamp;
   }
@@ -91,6 +95,10 @@ public class SessionPlayerCommand implements MinecraftPacket {
 
     public boolean isEmpty() {
       return this.entries.isEmpty();
+    }
+
+    public int size() {
+      return this.entries.size();
     }
 
     public void encode(ByteBuf buf) {
